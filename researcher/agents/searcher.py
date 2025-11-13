@@ -10,6 +10,7 @@ from researcher.config.settings import get_settings
 from researcher.llm import LLMFactory
 from researcher.prompts.search_prompts import SEARCHER_SYSTEM_PROMPT
 from researcher.tools.search_tools import search_arxiv, search_papers
+from researcher.utils.logger import get_logger
 
 settings = get_settings()
 DEFAULT_PROVIDER = settings.default_provider
@@ -39,8 +40,9 @@ class SearcherAgent:
             max_tokens=DEFAULT_MAX_TOKENS,
         )
         self.system_prompt = SEARCHER_SYSTEM_PROMPT
+        self.logger = get_logger("searcher_agent")
     
-    def search(self, topic: str, max_papers: int = 10) -> List[Dict]:
+    def search(self, topic: str, max_papers: int = 5) -> List[Dict]:
         """
         搜索相关文献
         
@@ -58,8 +60,11 @@ class SearcherAgent:
         ]
         response = self.llm.invoke(messages)
         keywords = response.content
+        self.logger.info("使用关键词：%s", keywords)
+        
         
         # 执行搜索
+        self.logger.info("max_papers: %d", max_papers)
         papers = search_arxiv(keywords, max_results=max_papers)
         
         # 如果 arxiv 结果不足，可以使用其他搜索工具
