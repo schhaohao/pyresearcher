@@ -9,8 +9,8 @@ from researcher.agents.searcher import SearcherAgent
 from researcher.agents.analyzer import AnalyzerAgent
 from researcher.agents.summarizer import SummarizerAgent
 from researcher.agents.writer import WriterAgent
-from researcher_demo.researcher.utils import logger
 from researcher.tools.paper_tools import save_pdf_to_knowledge_base, download_paper
+from researcher.utils.logger import get_logger
 
 
 class ResearchState(TypedDict):
@@ -40,6 +40,7 @@ class ResearchGraph:
         self.analyzer = AnalyzerAgent()
         self.summarizer = SummarizerAgent()
         self.writer = WriterAgent()
+        self.logger = get_logger("research_graph")
         
         # 构建图
         self.graph = self._build_graph()
@@ -67,7 +68,7 @@ class ResearchGraph:
     
     def _search_node(self, state: ResearchState) -> ResearchState:
         """搜索节点"""
-        logger.info("正在搜索论文...")
+        self.logger.info("正在搜索论文...")
         papers = self.searcher.search(
             topic=state["topic"],
             max_papers=state["max_papers"]
@@ -76,7 +77,7 @@ class ResearchGraph:
     
     def _ingest_node(self, state: ResearchState) -> ResearchState:
         """知识库入库节点：尝试将搜索结果中的 PDF 写入知识库"""
-        logger.info("正在将搜索结果入库（如可用 PDF）...")
+        self.logger.info("正在将搜索结果入库（如可用 PDF）...")
         papers = state["papers"] or []
         ingested = 0
         for p in papers:
@@ -94,10 +95,10 @@ class ResearchGraph:
             try:
                 if pdf_url:
                     # 先下载到本地再解析入库，保证解析器兼容性
-                    logger.info("正在下载论文 PDF：%s", pdf_url)
+                    self.logger.info("正在下载论文 PDF：%s", pdf_url)
                     local_pdf = download_paper(pdf_url) or ""
                     if local_pdf and os.path.exists(local_pdf):
-                        logger.info("正在将论文存入知识库：%s", title)
+                        self.logger.info("正在将论文存入知识库：%s", title)
                         save_pdf_to_knowledge_base(
                             pdf_path=local_pdf,
                             paper_title=title,
@@ -105,25 +106,25 @@ class ResearchGraph:
                         )
                         ingested += 1
             except Exception as exc:
-                logger.error("入库失败：%s (%s) - %s", title, pdf_url or url, exc)
-        logger.info("入库完成，成功入库 %d 篇。", ingested)
+                self.logger.error("入库失败：%s (%s) - %s", title, pdf_url or url, exc)
+        self.logger.info("入库完成，成功入库 %d 篇。", ingested)
         return state
     
     def _analyze_node(self, state: ResearchState) -> ResearchState:
         """分析节点"""
-        logger.info("正在分析论文...")
+        self.logger.info("正在分析论文...")
         analyses = self.analyzer.analyze_batch(state["papers"])
         return {**state, "analyses": analyses}
     
     def _summarize_node(self, state: ResearchState) -> ResearchState:
         """摘要节点"""
-        logger.info("正在生成摘要...")
+        self.logger.info("正在生成摘要...")
         summaries = self.summarizer.summarize_batch(state["analyses"])
         return {**state, "summaries": summaries}
     
     def _write_node(self, state: ResearchState) -> ResearchState:
         """撰写节点"""
-        logger.info("正在撰写报告...")
+        self.logger.info("正在撰写报告...")
         report = self.writer.write_report(
             topic=state["topic"],
             summaries=state["summaries"]
