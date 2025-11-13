@@ -42,7 +42,6 @@ outputs/
 *.log
 *.pdf
 *.txt
-*.md
 
 # 测试
 .pytest_cache/
